@@ -1,4 +1,4 @@
-[README.md](https://github.com/user-attachments/files/26597674/README.md)
+
 # bnpmccr
 
 `bnpmccr` is an R package for **Bayesian nonparametric multivariate conditional copula regression with varying coefficients** for **mixed-type multivariate responses**.
@@ -8,9 +8,9 @@ The package jointly models:
 1. **marginal distributions with varying coefficients**, using natural cubic spline basis expansions with adaptive knot selection, and
 2. **covariate-dependent dependence structures**, using a Gaussian copula mixture with **probit stick-breaking process (PSBP)** weights.
 
-The implementation follows the methodology in the accompanying paper:
+This package implements the method described in the accompanying anonymous manuscript.
 
-> Jeong, Y. and Jeong, S. (2026). *Bayesian Nonparametric Modeling for Multivariate Conditional Copula Regression with Varying Coefficients*.
+> Anonymous Authors (2026). *Bayesian Nonparametric Modeling for Multivariate Conditional Copula Regression with Varying Coefficients*.
 
 ---
 
@@ -282,8 +282,7 @@ A typical workflow is:
 
 ## Reference
 
-Jeong, Y. and Jeong, S. (2026).
-*Bayesian Nonparametric Modeling for Multivariate Conditional Copula Regression with Varying Coefficients*.
+Anonymous Authors (2026). *Bayesian Nonparametric Modeling for Multivariate Conditional Copula Regression with Varying Coefficients*.
 
 ---
 
