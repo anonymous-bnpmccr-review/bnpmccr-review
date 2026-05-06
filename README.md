@@ -90,6 +90,30 @@ library(bnpmccr)
 Since the package contains compiled C++ code, users may need suitable compilation tools, such as Rtools on Windows or Xcode Command Line Tools on macOS.
 ---
 
+## R package dependencies
+
+The core package depends on `Rcpp`, `RcppArmadillo`, and `mvtnorm`.
+The BRFSS 2023 reproduction scripts additionally use `haven`, `dplyr`, and
+`matrixStats`.
+
+Users can install the required packages with:
+
+```r
+install.packages(c(
+  "remotes",
+  "Rcpp",
+  "RcppArmadillo",
+  "mvtnorm",
+  "haven",
+  "dplyr",
+  "matrixStats"
+))
+```
+
+Exact package versions are recorded in `sessionInfo.txt` and
+`package_versions.csv` in the repository.
+---
+
 ## Backend requirements
 
 `fit_bnpmccr()` assumes that the spline utilities and MCMC backend functions are already available in the package namespace.

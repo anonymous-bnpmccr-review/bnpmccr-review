@@ -17,4 +17,11 @@ LinkingTo:
     Rcpp,
     RcppArmadillo
 Imports: 
-    Rcpp
+    Rcpp,
+    mvtnorm
+Suggests:
+    haven,
+    dplyr,
+    matrixStats,
+    remotes,
+    devtools
