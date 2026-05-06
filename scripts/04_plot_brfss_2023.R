@@ -141,8 +141,8 @@ extract_beta_draws <- function(fit) {
 }
 
 extract_diabetes_cutpoint_trace <- function(fit) {
-  if (!is.null(fit$cutpointsave)) {
-    return(as.numeric(sapply(fit$cutpointsave, function(x) x[[1]][3])))
+  if (!is.null(fit$cutPoint)) {
+    return(as.numeric(sapply(fit$cutPoint, function(x) x[[1]][3])))
   }
   if (!is.null(fit$posterior_samples$cutpoint)) {
     cutpoint <- fit$posterior_samples$cutpoint
@@ -355,145 +355,153 @@ draw_overlap_band <- function(x, lower, upper, idx, col) {
 
 grDevices::pdf(file = figure_file, width = 14, height = 18, useDingbats = FALSE)
 
+pdf_dev <- grDevices::dev.cur()
 old_par <- par(no.readonly = TRUE)
-on.exit({
-  par(old_par)
-  grDevices::dev.off()
-}, add = TRUE)
 
-par(
-  mfrow = c(n_pred, n_resp),
-  mar = c(0.0, 1, 0.0, 1.5),
-  oma = c(3.2, 3.2, 3.0, 0.2),
-  mgp = c(1.6, 0.2, 0),
-  tcl = -0.3,
-  cex.axis = 1.1,
-  lwd = 0.8
-)
+tryCatch({
 
-pad_frac <- 0.2
-edge_frac <- 0.2
-min_yticks <- 2L
+  par(
+    mfrow = c(n_pred, n_resp),
+    mar = c(0.0, 1, 0.0, 1.5),
+    oma = c(3.2, 3.2, 3.0, 0.2),
+    mgp = c(1.6, 0.2, 0),
+    tcl = -0.3,
+    cex.axis = 1.1,
+    lwd = 0.8
+  )
 
-for (predictor_idx in seq_len(n_pred)) {
-  for (response_idx in seq_len(n_resp)) {
-    panel_idx <- (response_idx - 1L) * n_pred + predictor_idx
+  pad_frac <- 0.2
+  edge_frac <- 0.2
+  min_yticks <- 2L
 
-    x <- x_list[[panel_idx]]
-    mean_curve <- mean_list[[panel_idx]]
-    lower_curve <- lower_list[[panel_idx]]
-    upper_curve <- upper_list[[panel_idx]]
-    ymin <- ymin_vec[panel_idx]
-    ymax <- ymax_vec[panel_idx]
+  for (predictor_idx in seq_len(n_pred)) {
+    for (response_idx in seq_len(n_resp)) {
+      panel_idx <- (response_idx - 1L) * n_pred + predictor_idx
 
-    is_top <- predictor_idx == 1L
-    is_bottom <- predictor_idx == n_pred
-    is_left <- response_idx == 1L
+      x <- x_list[[panel_idx]]
+      mean_curve <- mean_list[[panel_idx]]
+      lower_curve <- lower_list[[panel_idx]]
+      upper_curve <- upper_list[[panel_idx]]
+      ymin <- ymin_vec[panel_idx]
+      ymax <- ymax_vec[panel_idx]
 
-    # First panel: show two diabetes cutpoint curves and their CI overlap.
-    if (panel_idx == 1L && !is.null(mean_list_cut[[1L]])) {
-      mean_cut <- mean_list_cut[[1L]]
-      lower_cut <- lower_list_cut[[1L]]
-      upper_cut <- upper_list_cut[[1L]]
+      is_top <- predictor_idx == 1L
+      is_bottom <- predictor_idx == n_pred
+      is_left <- response_idx == 1L
 
-      ymin <- min(lower_curve, lower_cut, na.rm = TRUE)
-      ymax <- max(upper_curve, upper_cut, na.rm = TRUE)
-      yr <- ymax - ymin
-      if (!is.finite(yr) || yr <= 0) yr <- 1
-      ymin <- ymin - 0.08 * yr
-      ymax <- ymax + 0.08 * yr
+      # First panel: show two diabetes cutpoint curves and their CI overlap.
+      if (panel_idx == 1L && !is.null(mean_list_cut[[1L]])) {
+        mean_cut <- mean_list_cut[[1L]]
+        lower_cut <- lower_list_cut[[1L]]
+        upper_cut <- upper_list_cut[[1L]]
 
-      plot(
-        x, mean_curve, type = "n",
-        xlab = "", ylab = "", main = "",
-        ylim = c(ymin, ymax),
-        xaxt = "n", yaxt = "n"
-      )
+        ymin <- min(lower_curve, lower_cut, na.rm = TRUE)
+        ymax <- max(upper_curve, upper_cut, na.rm = TRUE)
+        yr <- ymax - ymin
+        if (!is.finite(yr) || yr <= 0) yr <- 1
+        ymin <- ymin - 0.08 * yr
+        ymax <- ymax + 0.08 * yr
 
-      draw_band(x, lower_curve, upper_curve, grDevices::adjustcolor("grey70", alpha.f = 0.55))
-      draw_band(x, lower_cut, upper_cut, grDevices::adjustcolor("grey70", alpha.f = 0.55))
+        plot(
+          x, mean_curve, type = "n",
+          xlab = "", ylab = "", main = "",
+          ylim = c(ymin, ymax),
+          xaxt = "n", yaxt = "n"
+        )
 
-      overlap_lower <- pmax(lower_curve, lower_cut)
-      overlap_upper <- pmin(upper_curve, upper_cut)
-      draw_overlap_band(
-        x, overlap_lower, overlap_upper,
-        idx = overlap_lower < overlap_upper,
-        col = grDevices::adjustcolor("grey50", alpha.f = 0.75)
-      )
+        draw_band(x, lower_curve, upper_curve, grDevices::adjustcolor("grey70", alpha.f = 0.55))
+        draw_band(x, lower_cut, upper_cut, grDevices::adjustcolor("grey70", alpha.f = 0.55))
 
-      if (ymin <= 0 && ymax >= 0) {
-        abline(h = 0, lty = "dashed", col = "red", lwd = 1)
+        overlap_lower <- pmax(lower_curve, lower_cut)
+        overlap_upper <- pmin(upper_curve, upper_cut)
+        draw_overlap_band(
+          x, overlap_lower, overlap_upper,
+          idx = overlap_lower < overlap_upper,
+          col = grDevices::adjustcolor("grey50", alpha.f = 0.75)
+        )
+
+        if (ymin <= 0 && ymax >= 0) {
+          abline(h = 0, lty = "dashed", col = "red", lwd = 1)
+        }
+
+        lines(x, mean_curve, lty = 2, col = "blue", lwd = 1.2)
+        lines(x, mean_cut, lty = 2, col = "blue", lwd = 1.2)
+        box()
+      } else {
+        plot(
+          x, mean_curve, type = "n",
+          xlab = "", ylab = "", main = "",
+          ylim = c(ymin, ymax),
+          xaxt = "n", yaxt = "n"
+        )
+
+        draw_band(x, lower_curve, upper_curve, col = "grey85")
+
+        if (ymin <= 0 && ymax >= 0) {
+          abline(h = 0, lty = "dashed", col = "red", lwd = 1)
+        }
+
+        lines(x, mean_curve, lty = 2, col = "blue", lwd = 1)
+        box()
       }
 
-      lines(x, mean_curve, lty = 2, col = "blue", lwd = 1.2)
-      lines(x, mean_cut, lty = 2, col = "blue", lwd = 1.2)
-      box()
-    } else {
-      plot(
-        x, mean_curve, type = "n",
-        xlab = "", ylab = "", main = "",
-        ylim = c(ymin, ymax),
-        xaxt = "n", yaxt = "n"
-      )
-
-      draw_band(x, lower_curve, upper_curve, col = "grey85")
-
-      if (ymin <= 0 && ymax >= 0) {
-        abline(h = 0, lty = "dashed", col = "red", lwd = 1)
+      dec_min_here <- 2L
+      dec_max_here <- 6L
+      if (response_idx == n_resp && predictor_idx %in% c(2L, 3L, 9L)) {
+        dec_min_here <- 3L
+        dec_max_here <- 3L
       }
 
-      lines(x, mean_curve, lty = 2, col = "blue", lwd = 1)
-      box()
-    }
+      ytick <- make_y_ticks(
+        ymin, ymax,
+        pad_frac = pad_frac,
+        edge_frac = edge_frac,
+        n_pretty = 2,
+        min_ticks = min_yticks,
+        dec_min = dec_min_here,
+        dec_max = dec_max_here
+      )
 
-    dec_min_here <- 2L
-    dec_max_here <- 6L
-    if (response_idx == n_resp && predictor_idx %in% c(2L, 3L, 9L)) {
-      dec_min_here <- 3L
-      dec_max_here <- 3L
-    }
-
-    ytick <- make_y_ticks(
-      ymin, ymax,
-      pad_frac = pad_frac,
-      edge_frac = edge_frac,
-      n_pretty = 2,
-      min_ticks = min_yticks,
-      dec_min = dec_min_here,
-      dec_max = dec_max_here
-    )
-
-    old_mgp <- par("mgp")
-    par(mgp = c(old_mgp[1L], 0.5, old_mgp[3L]))
-    axis(2, at = ytick$at, labels = ytick$lab, cex.axis = 1.1, line = 0)
-    par(mgp = old_mgp)
-
-    if (is_bottom) {
       old_mgp <- par("mgp")
-      par(mgp = c(old_mgp[1L], 0.6, old_mgp[3L]))
-      axis(1, at = age_ticks_scaled, labels = age_ticks, cex.axis = 1.2, line = 0)
+      par(mgp = c(old_mgp[1L], 0.5, old_mgp[3L]))
+      axis(2, at = ytick$at, labels = ytick$lab, cex.axis = 1.1, line = 0)
       par(mgp = old_mgp)
-    }
 
-    if (is_left) {
-      at_row <- 1 - (predictor_idx - 0.5) / n_pred
-      mtext(
-        predictors[predictor_idx], side = 2, outer = TRUE,
-        at = at_row, line = 1.0, cex = 0.9
-      )
-    }
+      if (is_bottom) {
+        old_mgp <- par("mgp")
+        par(mgp = c(old_mgp[1L], 0.6, old_mgp[3L]))
+        axis(1, at = age_ticks_scaled, labels = age_ticks, cex.axis = 1.2, line = 0)
+        par(mgp = old_mgp)
+      }
 
-    if (is_top) {
-      at_col <- (response_idx - 0.5) / n_resp
-      mtext(
-        resp_lbl_plotmath[response_idx], side = 3, outer = TRUE,
-        at = at_col, line = 0.3, cex = 1.0
-      )
+      if (is_left) {
+        at_row <- 1 - (predictor_idx - 0.5) / n_pred
+        mtext(
+          predictors[predictor_idx], side = 2, outer = TRUE,
+          at = at_row, line = 1.0, cex = 0.9
+        )
+      }
+
+      if (is_top) {
+        at_col <- (response_idx - 0.5) / n_resp
+        mtext(
+          resp_lbl_plotmath[response_idx], side = 3, outer = TRUE,
+          at = at_col, line = 0.3, cex = 1.0
+        )
+      }
     }
   }
-}
 
-mtext("Age", side = 1, outer = TRUE, line = 2.0, cex = 1.2)
+  mtext("Age", side = 1, outer = TRUE, line = 2.0, cex = 1.2)
+
+}, finally = {
+  par(old_par)
+
+  if (pdf_dev %in% grDevices::dev.list()) {
+    grDevices::dev.set(pdf_dev)
+    grDevices::dev.off()
+  }
+})
 
 cat("Saved marginal-effect figure:", figure_file, "\n")
 
@@ -508,96 +516,113 @@ cat("Saved marginal-effect figure:", figure_file, "\n")
 # This block computes the posterior mean and 95% credible intervals of the
 # age-varying copula-latent correlations and draws the final correlation plot.
 
-# Packages --------------------------------------------------------------------
-
-library(matrixStats)
-
-# Basic settings ---------------------------------------------------------------
-
 responseType <- brfss_data$responseType
-covT <- as.numeric(brfss_data$X)
-age_raw <- brfss_data$age_raw
-
 m_resp <- length(responseType)
 stopifnot(m_resp == 8L)
 
-if (!exists("num_basis2")) {
-  num_basis2 <- fit_settings$num_basis2
-}
+num_basis2 <- if (!is.null(fit_settings$num_basis2)) fit_settings$num_basis2 else 12L
+H <- if (!is.null(fit_settings$initH)) fit_settings$initH else 10L
 
-if (!exists("H")) {
-  H <- fit_settings$initH
-}
-
-if (!exists("X_new")) {
-  X_new <- seq(min(covT), max(covT), length.out = 1000L)
-}
-
+X_new <- x_grid
 n_grid <- length(X_new)
-
-if (!exists("burnin")) {
-  n_saved <- nrow(output$posterior_samples$alpha_h)
-  burnin <- if (!is.null(fit_settings$burnin) && fit_settings$burnin > 0L) {
-    (fit_settings$burnin + 1L):n_saved
-  } else {
-    seq_len(n_saved)
-  }
-}
 
 # Extract posterior samples ----------------------------------------------------
 
-alpha_h <- output$posterior_samples$alpha_h
-beta_x  <- output$posterior_samples$beta_x
-
-if (!is.null(output$posterior_samples$Rmat)) {
-  R_list <- output$posterior_samples$Rmat
-} else if (!is.null(output$Rmat)) {
-  R_list <- output$Rmat
-} else if (!is.null(output$Rsave)) {
-  R_list <- output$Rsave
-} else {
-  stop("Cannot find posterior correlation matrices in output.")
+extract_alpha_h_draws <- function(fit) {
+  if (!is.null(fit$posterior_samples$alpha_h)) {
+    return(as.matrix(fit$posterior_samples$alpha_h))
+  }
+  if (!is.null(fit$alpha_h)) {
+    return(as.matrix(fit$alpha_h))
+  }
+  if (!is.null(fit$alphasave)) {
+    return(as.matrix(fit$alphasave))
+  }
+  stop("Could not find posterior alpha_h draws in the fit object.")
 }
 
-alpha_h <- as.matrix(alpha_h)
-beta_x  <- as.matrix(beta_x)
+extract_beta2_draws <- function(fit) {
+  if (!is.null(fit$posterior_samples$beta2)) {
+    return(as.matrix(fit$posterior_samples$beta2))
+  }
+  if (!is.null(fit$beta2)) {
+    return(as.matrix(fit$beta2))
+  }
+  if (!is.null(fit$beta2save)) {
+    return(as.matrix(fit$beta2save))
+  }
+  stop("Could not find posterior beta_x draws in the fit object.")
+}
+
+extract_R_list <- function(fit) {
+  if (!is.null(fit$posterior_samples$Rmat)) {
+    return(fit$posterior_samples$Rmat)
+  }
+  if (!is.null(fit$Rmat)) {
+    return(fit$Rmat)
+  }
+  if (!is.null(fit$Rsave)) {
+    return(fit$Rsave)
+  }
+  stop("Could not find posterior correlation matrices in the fit object.")
+}
+
+alpha_h <- extract_alpha_h_draws(fit)
+beta_x <- extract_beta2_draws(fit)
+R_list <- extract_R_list(fit)
+
+n_draws_corr <- min(
+  nrow(alpha_h),
+  nrow(beta_x),
+  length(R_list)
+)
+
+if (n_draws_corr <= 0L) {
+  stop("No posterior draws are available for the correlation plot.")
+}
+
+# Use the same posterior-draw route as the marginal plot when possible.
+corr_draws <- posterior_draws
+corr_draws <- corr_draws[corr_draws <= n_draws_corr]
+
+if (length(corr_draws) == 0L) {
+  corr_draws <- seq_len(n_draws_corr)
+}
+
 
 # Build PSBP basis on the plotting grid ---------------------------------------
 
-W_x <- as.matrix(
-  NaturalCubicBasis(
-    X_new,
-    select_knots(covT, num_basis2 - 1L)
+knots_corr <- select_knots(covT, num_basis2 - 2L)
+W_x <- as.matrix(NaturalCubicBasis(X_new, knots_corr))
+W_x <- sweep(W_x, 2L, colMeans(W_x), "-")
+
+q <- ncol(W_x)
+
+if (ncol(beta_x) < (H - 1L) * q) {
+  stop(
+    "The beta_x draw matrix has fewer columns than expected. ",
+    "Check num_basis2 and the fit object structure."
   )
-)
-
-if (ncol(W_x) != num_basis2) {
-  stop("ncol(W_x) does not match num_basis2.")
-}
-
-for (j in seq_len(ncol(W_x))) {
-  W_x[, j] <- W_x[, j] - mean(W_x[, j])
 }
 
 # Helper: compute PSBP weights at X_new for one posterior draw -----------------
 
 compute_psbp_weights <- function(iter_id, alpha_h, beta_x, W_x, H) {
-  
   n_grid <- nrow(W_x)
   q <- ncol(W_x)
-  
+
   pi_mat <- matrix(NA_real_, nrow = n_grid, ncol = H)
   remaining <- rep(1, n_grid)
-  
+
   for (h in seq_len(H - 1L)) {
     cols_h <- ((h - 1L) * q + 1L):(h * q)
     eta_h <- as.numeric(alpha_h[iter_id, h] + W_x %*% beta_x[iter_id, cols_h])
-    
-    stick_h <- pnorm(eta_h)
+
+    stick_h <- stats::pnorm(eta_h)
     pi_mat[, h] <- stick_h * remaining
     remaining <- remaining * (1 - stick_h)
   }
-  
+
   pi_mat[, H] <- remaining
   pi_mat
 }
@@ -605,9 +630,8 @@ compute_psbp_weights <- function(iter_id, alpha_h, beta_x, W_x, H) {
 # Helper: extract one R matrix block ------------------------------------------
 
 get_R_block <- function(R_list, iter_id, m_resp, H) {
-  
   R_iter <- R_list[[iter_id]]
-  
+
   if (is.list(R_iter)) {
     R_mat <- do.call(
       cbind,
@@ -616,21 +640,21 @@ get_R_block <- function(R_list, iter_id, m_resp, H) {
   } else {
     R_mat <- as.matrix(R_iter)
   }
-  
+
   if (nrow(R_mat) != m_resp * m_resp) {
     stop("Each R block must have m_resp^2 rows.")
   }
-  
+
   if (ncol(R_mat) < H) {
     stop("Each R block must contain at least H columns/components.")
   }
-  
+
   R_mat[, seq_len(H), drop = FALSE]
 }
 
 # Compute posterior correlation curves ----------------------------------------
 
-responses <- c(
+responses_corr <- c(
   "Diabetes", "HighBP", "HighChol", "Stroke",
   "HeartDis", "Arthritis", "Asthma", "LogBMI"
 )
@@ -638,23 +662,17 @@ responses <- c(
 pair_matrix <- t(combn(seq_len(m_resp), 2L))
 n_pairs <- nrow(pair_matrix)
 
-# Column-major vector indices for R[response_a, response_b]
+# Column-major vector indices for R[response_a, response_b].
 pair_vec_idx <- pair_matrix[, 1L] + (pair_matrix[, 2L] - 1L) * m_resp
-
-set.seed(2025)
-
-n_corr_draws <- min(1500L, length(burnin))
-draw_ids <- sample(burnin, size = n_corr_draws, replace = FALSE)
 
 corr_array <- array(
   NA_real_,
-  dim = c(n_corr_draws, n_grid, n_pairs)
+  dim = c(length(corr_draws), n_grid, n_pairs)
 )
 
-for (s in seq_along(draw_ids)) {
-  
-  iter_id <- draw_ids[s]
-  
+for (s in seq_along(corr_draws)) {
+  iter_id <- corr_draws[s]
+
   pi_mat <- compute_psbp_weights(
     iter_id = iter_id,
     alpha_h = alpha_h,
@@ -662,19 +680,19 @@ for (s in seq_along(draw_ids)) {
     W_x = W_x,
     H = H
   )
-  
+
   R_mat <- get_R_block(
     R_list = R_list,
     iter_id = iter_id,
     m_resp = m_resp,
     H = H
   )
-  
+
   # V[, g] = vec(sum_h pi_h(t_g) R_h)
   V <- R_mat %*% t(pi_mat)
-  
+
   corr_array[s, , ] <- t(V[pair_vec_idx, , drop = FALSE])
-  
+
   if (s %% 50L == 0L) {
     cat(s, "posterior correlation draws processed\n")
   }
@@ -682,109 +700,119 @@ for (s in seq_along(draw_ids)) {
 
 # Summarize posterior correlation curves --------------------------------------
 
-mean_values  <- vector("list", n_pairs)
+mean_values <- vector("list", n_pairs)
 lower_values <- vector("list", n_pairs)
 upper_values <- vector("list", n_pairs)
-min_values   <- numeric(n_pairs)
-max_values   <- numeric(n_pairs)
+min_values <- numeric(n_pairs)
+max_values <- numeric(n_pairs)
 
 for (k in seq_len(n_pairs)) {
-  
   corr_k <- corr_array[, , k, drop = FALSE][, , 1L]
-  
-  mean_k <- colMeans2(corr_k, na.rm = TRUE)
-  cred_k <- rowQuantiles(
+
+  mean_k <- matrixStats::colMeans2(corr_k, na.rm = TRUE)
+  cred_k <- matrixStats::rowQuantiles(
     t(corr_k),
     probs = c(0.025, 0.975),
     na.rm = TRUE
   )
-  
+
   lower_k <- cred_k[, 1L]
   upper_k <- cred_k[, 2L]
-  
-  mean_values[[k]]  <- mean_k
+
+  mean_values[[k]] <- mean_k
   lower_values[[k]] <- lower_k
   upper_values[[k]] <- upper_k
-  
-  max_values[k] <- max(upper_k) + 0.5 * (max(upper_k) - max(mean_k))
-  min_values[k] <- min(lower_k) - 0.5 * (-min(lower_k) + min(mean_k))
+
+  max_values[k] <- max(upper_k, na.rm = TRUE) +
+    0.5 * (max(upper_k, na.rm = TRUE) - max(mean_k, na.rm = TRUE))
+  min_values[k] <- min(lower_k, na.rm = TRUE) -
+    0.5 * (-min(lower_k, na.rm = TRUE) + min(mean_k, na.rm = TRUE))
 }
 
 # Age-axis ticks ---------------------------------------------------------------
 
 xticks_orig <- c(21, 27, 32, 37, 42, 47, 52, 57, 62, 67, 72, 77, 82)
-xticks_std <- (xticks_orig - mean(age_raw)) / sd(age_raw)
+xticks_std <- (xticks_orig - mean(age_raw)) / stats::sd(age_raw)
 
 # Final plot ------------------------------------------------------------------
 
-fig_dir <- file.path("figures", "brfss_2023")
-dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+corr_figure_file <- file.path(figure_dir, "plot_corr.pdf")
 
 pair_lbl_plotmath <- apply(pair_matrix, 1L, function(ii) {
   paste0(
-    'paste("', responses[ii[1L]], '", " (", y[i', ii[1L], '], ")", ',
+    'paste("', responses_corr[ii[1L]], '", " (", y[i', ii[1L], '], ")", ',
     '" vs ", ',
-    '"', responses[ii[2L]], '", " (", y[i', ii[2L], '], ")")'
+    '"', responses_corr[ii[2L]], '", " (", y[i', ii[2L], '], ")")'
   )
 })
 
-pdf(
-  file = file.path(fig_dir, "plot_corr.pdf"),
+grDevices::pdf(
+  file = corr_figure_file,
   width = 18,
-  height = 11
+  height = 11,
+  useDingbats = FALSE
 )
 
-op <- par(
-  mfrow    = c(4, 7),
-  mar      = c(2.6, 3, 3, 0.5),
-  mgp      = c(0.8, 1, 0),
-  tcl      = -0.3,
-  cex.lab  = 1.5,
-  cex.axis = 1.5,
-  cex.main = 1.48
-)
+pdf_dev <- grDevices::dev.cur()
+old_par_corr <- par(no.readonly = TRUE)
 
-zero_col <- "red"
+tryCatch({
 
-for (k in seq_len(n_pairs)) {
-  
-  x  <- X_new
-  m  <- mean_values[[k]]
-  lo <- lower_values[[k]]
-  hi <- upper_values[[k]]
-  
-  plot(
-    x, m,
-    type = "n",
-    xlab = NA,
-    ylab = NA,
-    main = NA,
-    axes = FALSE,
-    ylim = c(min_values[k], max_values[k])
+  par(
+    mfrow = c(4, 7),
+    mar = c(2.6, 3, 3, 0.5),
+    mgp = c(0.8, 1, 0),
+    tcl = -0.3,
+    cex.lab = 1.5,
+    cex.axis = 1.5,
+    cex.main = 1.48
   )
-  
-  title(main = parse(text = pair_lbl_plotmath[k]), font.main = 1)
-  
-  polygon(
-    c(x, rev(x)),
-    c(hi, rev(lo)),
-    col = "grey85",
-    border = NA
-  )
-  
-  if (min_values[k] <= 0 && max_values[k] >= 0) {
-    abline(h = 0, lty = "dashed", col = zero_col, lwd = 1)
+
+  zero_col <- "red"
+
+  for (k in seq_len(n_pairs)) {
+    x <- X_new
+    m <- mean_values[[k]]
+    lo <- lower_values[[k]]
+    hi <- upper_values[[k]]
+
+    plot(
+      x, m,
+      type = "n",
+      xlab = NA,
+      ylab = NA,
+      main = NA,
+      axes = FALSE,
+      ylim = c(min_values[k], max_values[k])
+    )
+
+    title(main = parse(text = pair_lbl_plotmath[k]), font.main = 1)
+
+    polygon(
+      c(x, rev(x)),
+      c(hi, rev(lo)),
+      col = "grey85",
+      border = NA
+    )
+
+    if (min_values[k] <= 0 && max_values[k] >= 0) {
+      abline(h = 0, lty = "dashed", col = zero_col, lwd = 1)
+    }
+
+    lines(x, m, lwd = 1, lty = 2, col = "blue")
+
+    axis(1, at = xticks_std, labels = xticks_orig, cex.axis = 1.5)
+    axis(2)
+    box()
   }
-  
-  lines(x, m, lwd = 1, lty = 2, col = "blue")
-  
-  axis(1, at = xticks_std, labels = xticks_orig, cex.axis = 1.5)
-  axis(2)
-  box()
-}
 
-par(op)
-dev.off()
+}, finally = {
+  par(old_par_corr)
 
-cat("Saved correlation plot: ", file.path(fig_dir, "plot_corr.pdf"), "\n")
+  if (pdf_dev %in% grDevices::dev.list()) {
+    grDevices::dev.set(pdf_dev)
+    grDevices::dev.off()
+  }
+})
 
+cat("Saved correlation plot:", corr_figure_file, "\n")
