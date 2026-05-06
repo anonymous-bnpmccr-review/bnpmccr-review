@@ -79,20 +79,15 @@ Recommended roles for each directory:
 
 ## Installation
 
-If the package is being developed locally rather than installed from CRAN, use:
+The package can be installed from GitHub using:
 
 ```r
 install.packages("remotes")
-remotes::install_local(".")
+remotes::install_github("anonymous-bnpmccr-review/bnpmccr-review")
+library(bnpmccr)
 ```
 
-During development, you may prefer:
-
-```r
-install.packages("devtools")
-devtools::load_all(".")
-```
-
+Since the package contains compiled C++ code, users may need suitable compilation tools, such as Rtools on Windows or Xcode Command Line Tools on macOS.
 ---
 
 ## Backend requirements
