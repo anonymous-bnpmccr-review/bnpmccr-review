@@ -4,15 +4,9 @@
 \name{bnpmccr-package}
 \alias{bnpmccr}
 \alias{bnpmccr-package}
-\title{bnpmccr: What the Package Does (One Line, Title Case)}
+\title{bnpmccr: Bayesian Nonparametric Conditional Copula Regression}
 \description{
-What the package does (one paragraph).
-}
-\seealso{
-Useful links:
-\itemize{
- }
-
+Implements Bayesian nonparametric multivariate conditional copula regression with varying coefficients for mixed-type responses. The package provides functions for fitting flexible marginal regressions and covariate-dependent Gaussian copula mixtures using Markov chain Monte Carlo. It is intended to support the reproducibility of the accompanying manuscript.
 }
 \author{
 \strong{Maintainer}: Anonymous Author \email{anonymous@example.com}

@@ -163,13 +163,17 @@
     "update_Z_star",
     "updateDPParameters"
   )
+
+  ns <- asNamespace("bnpmccr")
+
   missing <- needed[!vapply(
     needed,
-    exists,
-    logical(1),
-    mode = "function",
-    inherits = TRUE
+    function(f) {
+      exists(f, envir = ns, mode = "function", inherits = FALSE)
+    },
+    logical(1)
   )]
+
   if (length(missing) > 0L) {
     stop(
       "Missing required backend functions in the package namespace: ",
@@ -177,6 +181,8 @@
       call. = FALSE
     )
   }
+
+  invisible(TRUE)
 }
 
 #' Fit Bayesian nonparametric multivariate conditional copula regression
