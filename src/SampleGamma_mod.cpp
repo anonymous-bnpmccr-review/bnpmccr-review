@@ -6,14 +6,14 @@
 using namespace Rcpp;
 using namespace arma;
 
-// ===== Cholesky 기반: 역행렬 없이 log|Σ|와 μᵀΣ^{-1}μ 계산 =====
+// ===== Cholesky-based calculation =====
 struct CholStats {
   double logdet;  // log|Σ|
   double quad;    // μᵀ Σ^{-1} μ
 };
 
 inline CholStats chol_stats(arma::mat Sigma, const arma::vec& mu) {
-  // 수치적 대칭화 + 작은 ridge로 안정화 (백오프)
+  // stability
   Sigma = 0.5 * (Sigma + Sigma.t());
   arma::mat L;
   double eps = 1e-10;
@@ -24,7 +24,7 @@ inline CholStats chol_stats(arma::mat Sigma, const arma::vec& mu) {
     eps *= 10.0;
   }
   if (!ok) Rcpp::stop("chol failed (Sigma not SPD)");
-  
+
   const double logdet = 2.0 * arma::sum(arma::log(L.diag()));
   arma::vec y = arma::solve(arma::trimatl(L), mu); // L y = μ → y = L^{-1} μ
   const double quad = arma::dot(y, y);             // μᵀ Σ^{-1} μ
@@ -32,20 +32,20 @@ inline CholStats chol_stats(arma::mat Sigma, const arma::vec& mu) {
 }
 
 //------------------------------------------------------------------------------
-// bdiag_rcpp: 여러 행렬을 블록대각으로 결합하여 하나의 행렬을 반환
+// bdiag_rcpp
 //------------------------------------------------------------------------------
 arma::mat bdiag_rcpp(const Rcpp::List& mats) {
   int total_rows = 0, total_cols = 0;
   int n = mats.size();
-  
+
   for (int i = 0; i < n; i++) {
     arma::mat current = as<arma::mat>(mats[i]);
     total_rows += current.n_rows;
     total_cols += current.n_cols;
   }
-  
+
   arma::mat ans(total_rows, total_cols, arma::fill::zeros);
-  
+
   int i1 = 0, j1 = 0;
   for (int i = 0; i < n; i++) {
     arma::mat current = as<arma::mat>(mats[i]);
@@ -57,7 +57,7 @@ arma::mat bdiag_rcpp(const Rcpp::List& mats) {
 }
 
 //------------------------------------------------------------------------------
-// sampleGammaCpp (inv() 제거 + 임시 축소 + Gaussian/Probit 공통화)
+// sampleGammaCpp
 //------------------------------------------------------------------------------
 // [[Rcpp::export]]
 Rcpp::IntegerVector sampleGammaCpp2(Rcpp::IntegerVector Gammacurr,
@@ -68,7 +68,7 @@ Rcpp::IntegerVector sampleGammaCpp2(Rcpp::IntegerVector Gammacurr,
                                    const arma::vec& d,
                                    const arma::mat& Y,
                                    const arma::mat& ZTilde,
-                                   Rcpp::CharacterVector responseType, // "Gaussian" 나머지는 probit 취급
+                                   Rcpp::CharacterVector responseType,
                                    const arma::vec& g,
                                    int num_basis,
                                    int p,
@@ -78,27 +78,27 @@ Rcpp::IntegerVector sampleGammaCpp2(Rcpp::IntegerVector Gammacurr,
                                    double omegaM,
                                    const arma::vec& Rh,
                                    const arma::vec& zeta) {
-  
+
   int totalW_cols = totalW.n_cols;
   int Xmat_cols   = Xmat.n_cols;
-  
-  // 항상 포함되어야 하는 인덱스
+
+  // always included
   std::vector<int> alwaysIncluded;
   for (int j = 0; j < p; j++) {
     alwaysIncluded.push_back(p + (num_basis - 1) * j);
   }
-  
-  // 열 반복
+
+  // cols
   for (int j = p; j < totalW_cols; j++) {
     if (std::find(alwaysIncluded.begin(), alwaysIncluded.end(), j) != alwaysIncluded.end())
       continue;
-    
-    // --- PART 1: idx, idx0 계산 ---
+
+    // --- PART 1: idx, idx0  ---
     std::vector<int> idx1;
     for (int i = start; i <= start + j - 1; i++) {
       if (Gammacurr[i] > 0) idx1.push_back(i - start);
     }
-    
+
     std::vector<int> idx, idx0;
     if (j == totalW_cols - 1) {
       idx = idx1; idx.push_back(j);
@@ -111,18 +111,18 @@ Rcpp::IntegerVector sampleGammaCpp2(Rcpp::IntegerVector Gammacurr,
       idx  = idx1; idx.push_back(j); idx.insert(idx.end(), idx2.begin(), idx2.end());
       idx0 = idx1; idx0.insert(idx0.end(), idx2.begin(), idx2.end());
     }
-    
+
     // --- PART 2: prgamma1 ---
-    int jp   = (j + 1) - Xmat_cols; // (R: j - ncol(Xmat)) 의 1-based 보정
+    int jp   = (j + 1) - Xmat_cols; // (R: j - ncol(Xmat)) 1-based
     int numj = (jp % (num_basis - 1) == 0) ? (jp / (num_basis - 1))
       : (jp / (num_basis - 1) + 1);
-    
+
     std::vector<int> gamsub;
     for (int i = start + p; i <= end; i++) gamsub.push_back(Gammacurr[i]);
-    
+
     int block_start = (num_basis - 1) * (numj - 1);
     int block_end   = (num_basis - 1) * numj - 1;
-    
+
     std::vector<int> gamsub_block;
     for (int i = block_start; i <= block_end; i++) {
       if (i == j - p) continue;
@@ -131,30 +131,29 @@ Rcpp::IntegerVector sampleGammaCpp2(Rcpp::IntegerVector Gammacurr,
     int gamsum = std::accumulate(gamsub_block.begin(), gamsub_block.end(), 0);
     double prgamma1 = ((1 - omegaM) * (gamsum + 1.0)) /
       ((num_basis - 1 - gamsum) + (1 - omegaM) * (gamsum + 1.0));
-    
-    // --- PART 3: W_11, W_00 추출 ---
+
+    // --- PART 3: W_11, W_00 ---
     arma::uvec idx_u(idx.size());
     for (unsigned int t = 0; t < idx.size(); t++) idx_u[t] = idx[t];
     arma::mat W_11 = totalW.cols(idx_u);
-    
+
     arma::uvec idx0_u(idx0.size());
     for (unsigned int t = 0; t < idx0.size(); t++) idx0_u[t] = idx0[t];
     arma::mat W_00 = totalW.cols(idx0_u);
-    
-    // Xmat(인터셉트) 제거 후 블록 선택
+
     std::vector<int> new_idx, new_idx0;
     for (unsigned int t = p; t < idx.size();  t++) new_idx.push_back(idx[t]  - p);
     for (unsigned int t = p; t < idx0.size(); t++) new_idx0.push_back(idx0[t] - p);
-    
+
     std::vector<int> subidx, subidx0;
     for (auto v : new_idx)  if (v  <= (num_basis - 1) - 1) subidx.push_back(v);
     for (auto v : new_idx0) if (v <= (num_basis - 1) - 1) subidx0.push_back(v);
-    
-    // --- PART 4: bdiag 구성 ---
+
+    // --- PART 4: bdiag  ---
     int start_g = (k - 1) * p;
     int end_g   = k * p - 1;
     arma::vec sub_g = g.subvec(start_g, end_g);
-    
+
     arma::mat bdiagmat1, bdiagmat0;
     if (!subidx.empty()) {
       arma::uvec subidx_u(subidx.size());
@@ -168,15 +167,15 @@ Rcpp::IntegerVector sampleGammaCpp2(Rcpp::IntegerVector Gammacurr,
       arma::mat W_sub0 = W.cols(subidx0_u);
       bdiagmat0 = (1.0 / sub_g[0]) * (W_sub0.t() * W_sub0);
     }
-    
+
     for (int q = 2; q <= p; q++) {
       int lower_bound = (q - 1) * (num_basis - 1);
       int upper_bound =  q      * (num_basis - 1) - 1;
-      
+
       std::vector<int> subidx_q, subidx0_q;
       for (auto v : new_idx)  if (v  >= lower_bound && v  <= upper_bound) subidx_q.push_back(v);
       for (auto v : new_idx0) if (v >= lower_bound && v <= upper_bound)  subidx0_q.push_back(v);
-      
+
       if (!subidx_q.empty()) {
         arma::uvec subidx_q_u(subidx_q.size());
         for (unsigned int t = 0; t < subidx_q.size(); t++) subidx_q_u[t] = subidx_q[t];
@@ -200,19 +199,19 @@ Rcpp::IntegerVector sampleGammaCpp2(Rcpp::IntegerVector Gammacurr,
         }
       }
     }
-    
+
     { Rcpp::List temp; temp.push_back(blockPriorInv); temp.push_back(bdiagmat1); bdiagmat1 = bdiag_rcpp(temp); }
     { Rcpp::List temp; temp.push_back(blockPriorInv); temp.push_back(bdiagmat0); bdiagmat0 = bdiag_rcpp(temp); }
-    
-    // --- PART 5: mu, Sigma (Gaussian + Binary/Ordinal Probit 공통 루틴) ---
+
+    // --- PART 5: mu, Sigma (Gaussian + Binary/Ordinal Probit ) ---
     arma::vec mu1, mu0;
     arma::mat Sigma1, Sigma0;
-    
+
     const bool isGaussian = (as<std::string>(responseType[k - 1]) == "Gaussian");
-    
+
     double sigma_scale;
     arma::vec term;
-    
+
     if (isGaussian) {
       // Gaussian: term = (1/d_k)*zeta + (1/d_k^2)*(Rh .* Y_k)
       double d_k = d[k - 1];
@@ -223,38 +222,38 @@ Rcpp::IntegerVector sampleGammaCpp2(Rcpp::IntegerVector Gammacurr,
       sigma_scale = 1.0;
       term = zeta + (Rh % ZTilde.col(k - 1));
     }
-    
+
     mu1 = W_11.t() * term;
     mu0 = W_00.t() * term;
-    
-    // 임시 축소: diag(Rh)*W 를 in-place 스케일로 대체 → 곱셈 1회
+
+
     arma::mat W11w = W_11; W11w.each_col() %= Rh;
     arma::mat W00w = W_00; W00w.each_col() %= Rh;
-    
+
     Sigma1 = sigma_scale * (W_11.t() * W11w) + bdiagmat1;
     Sigma0 = sigma_scale * (W_00.t() * W00w) + bdiagmat0;
-    
-    // prior(bdiag) 로그결정식
+
+
     bdiagmat1 = 0.5 * (bdiagmat1 + bdiagmat1.t());
     bdiagmat0 = 0.5 * (bdiagmat0 + bdiagmat0.t());
     double logdet_bdiag1 = arma::log_det_sympd(bdiagmat1);
     double logdet_bdiag0 = arma::log_det_sympd(bdiagmat0);
-    
-    // inv() 없이 Cholesky로 log|Σ|, μᵀΣ^{-1}μ
+
+
     CholStats s1 = chol_stats(Sigma1, mu1);
     CholStats s0 = chol_stats(Sigma0, mu0);
-    
+
     double logSr1 = -0.5 * s1.logdet + 0.5 * s1.quad + 0.5 * logdet_bdiag1 + std::log(prgamma1);
     double logSr0 = -0.5 * s0.logdet + 0.5 * s0.quad + 0.5 * logdet_bdiag0 + std::log(1.0 - prgamma1);
-    
-    // 안정적 확률 (log-sum-exp)
+
+    // stable (log-sum-exp)
     double m = std::max(logSr0, logSr1);
     double prob_gamma = std::exp(logSr1 - m) / (std::exp(logSr0 - m) + std::exp(logSr1 - m));
     int gamma_sample = (R::runif(0.0, 1.0) < prob_gamma) ? 1 : 0;
-    
-    // 업데이트
+
+    // update
     Gammacurr[start + j] = gamma_sample;
   }
-  
+
   return Gammacurr;
 }
