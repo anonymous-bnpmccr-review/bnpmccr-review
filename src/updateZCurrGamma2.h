@@ -3,7 +3,6 @@
 
 #include <RcppArmadillo.h>
 
-// 함수 선언 (declaration)
 arma::mat updateZCurrGamma2(
   const arma::mat& Y,
   const arma::mat& WB,
